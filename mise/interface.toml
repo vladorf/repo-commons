@@ -1,8 +1,0 @@
-[check]
-description = "Repository sanity check: runs static analysis, format checks and linters"
-
-[pre-commit]
-description = "Fast checks run by the pre-commit git hook"
-
-[pre-push]
-description = "Slower checks run by the pre-push git hook"

@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+import json
+import os
+import re
+import subprocess
+import sys
+
+tasks = json.loads(subprocess.check_output(["mise", "tasks", "ls", "--json"]))
+root = os.path.realpath(os.environ.get("MISE_PROJECT_ROOT", os.getcwd()))
+# MISE_TASK_DIR = .../mise (dir of organization.toml)
+interfaces_dir = os.path.join(os.environ["MISE_TASK_DIR"], "interfaces")
+interfaces = {f[:-5] for f in os.listdir(interfaces_dir) if f.endswith(".toml")}
+# set by organization.toml from config.toml's [vars]
+base, ref = os.environ["COMMONS_BASE"], os.environ["COMMONS_REF"]
+
+
+def norm(url):  # git::ssh://git@github.com/o/r.git, git@github.com:o/r.git, https://github.com/o/r -> github.com/o/r
+    url = url.removeprefix("git::")
+    return re.sub(r"\.git$", "", re.sub(r"^(?:\w+://)?(?:[^@/]+@)?([^/:]+)[:/]", r"\1/", url))
+
+
+def git(path, *args):
+    try:
+        return subprocess.check_output(["git", "-C", os.path.dirname(path), *args], text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return ""
+
+
+def matches_commons(where):
+    if where.startswith("git::"):  # not fetched yet: url itself carries repo and ref
+        return norm(where.split("//", 2)[0] + "//" + where.split("//", 2)[1]) == norm(base) and where.endswith("?ref=" + ref)
+    head = git(where, "rev-parse", "HEAD")  # fetched: a clone in mise's remote cache
+    return norm(git(where, "remote", "get-url", "origin")) == norm(base) and ref in {
+        git(where, "rev-parse", "--abbrev-ref", "HEAD"), git(where, "describe", "--tags", "--exact-match"), head[:len(ref)]}
+
+
+errors = []
+
+for t in tasks:
+    name = t["name"]
+    # file tasks: `file` is the real script (git:: url before fetch, remote cache path after); else the defining toml
+    where = t.get("file") or t["source"]
+    remote = where.startswith("git::") or not os.path.realpath(where).startswith(root + os.sep)
+    if name.startswith("local:") or name in interfaces or (name.startswith("org:") and remote and matches_commons(where)):
+        continue
+    errors.append(f"{name}: must be local:*, org:* from commons_base@commons_ref, or one of {sorted(interfaces)} (source {t['source']})")
+
+if errors:
+    sys.exit("repo interface violations:\n  " + "\n  ".join(errors))
+print("repo interface OK")

@@ -1,0 +1,2 @@
+[pre-push]
+description = "Slower checks run by the pre-push git hook"

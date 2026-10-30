@@ -1,3 +1,9 @@
 ["org:check:mandatory"]
 description = "Mandatory checks for every repository"
 depends = ["org:check:mise"]
+
+["org:check:mise"]
+description = "Fail if repo tasks are neither local:*, org:* from commons_base@commons_ref, nor named in interfaces/"
+env = { COMMONS_BASE = "{{vars.commons_base}}", COMMONS_REF = "{{vars.commons_ref}}" }
+# MISE_TASK_DIR is the directory of this toml, i.e. the commons checkout fetched at commons_ref
+run = "$MISE_TASK_DIR/tasks/checks/mise"

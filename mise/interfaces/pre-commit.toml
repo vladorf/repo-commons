@@ -1,0 +1,2 @@
+[pre-commit]
+description = "Fast checks run by the pre-commit git hook"

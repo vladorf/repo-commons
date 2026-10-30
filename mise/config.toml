@@ -1,0 +1,3 @@
+[vars]
+commons_base = "git::ssh://git@github.com/vladorf/repo-commons.git"
+commons_ref = "tryout"
