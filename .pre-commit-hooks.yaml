@@ -6,10 +6,20 @@
   pass_filenames: false
   always_run: true
 
-- id: check
-  name: mise check
-  description: Repository sanity check (static analysis, format checks, linters)
-  entry: mise run check
+- id: pre-commit
+  name: mise pre-commit
+  description: Fast checks run on commit
+  entry: mise run pre-commit
   language: system
   pass_filenames: false
   always_run: true
+  stages: [pre-commit]
+
+- id: pre-push
+  name: mise pre-push
+  description: Slower checks run on push
+  entry: mise run pre-push
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-push]
