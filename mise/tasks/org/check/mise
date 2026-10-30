@@ -8,9 +8,6 @@ import sys
 
 tasks = json.loads(subprocess.check_output(["mise", "tasks", "ls", "--json"]))
 root = os.path.realpath(os.environ.get("MISE_PROJECT_ROOT", os.getcwd()))
-# remote-file tasks report source=<repo mise.toml> and file="git::<url>//<path>?ref=..."
-INTERFACE_REPO = ("git::https://github.com/vladorf/repo-commons.git//",
-                  "git::ssh://git@github.com/vladorf/repo-commons.git//")
 INTERFACE_SLUG = "vladorf/repo-commons"
 INTERFACE_REF = "tryout"  # ponytail: temporary branch pin, switch to a tag/main when released
 
@@ -31,7 +28,8 @@ errors = []
 for t in tasks:
     name, source = t["name"], os.path.realpath(t["source"])
     remote = not source.startswith(root + os.sep)
-    if name.startswith("local:") or str(t.get("file") or "").startswith(INTERFACE_REPO) and str(t["file"]).endswith("?ref=" + INTERFACE_REF):
+    # git:: file tasks may come from any repo
+    if name.startswith("local:") or str(t.get("file") or "").startswith("git::"):
         continue
     if remote and from_interface_repo(source):
         continue
