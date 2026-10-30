@@ -1,0 +1,15 @@
+- id: org-check-mandatory
+  name: mise org:check:mandatory
+  description: Mandatory org checks for every repository
+  entry: mise run org:check:mandatory
+  language: system
+  pass_filenames: false
+  always_run: true
+
+- id: check
+  name: mise check
+  description: Repository sanity check (static analysis, format checks, linters)
+  entry: mise run check
+  language: system
+  pass_filenames: false
+  always_run: true

@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+#MISE description="Fail if repo tasks are neither local:* nor defined by the remote interface"
+import json
+import os
+import re
+import subprocess
+import sys
+
+tasks = json.loads(subprocess.check_output(["mise", "tasks", "ls", "--json"]))
+root = os.path.realpath(os.environ.get("MISE_PROJECT_ROOT", os.getcwd()))
+# remote-file tasks report source=<repo mise.toml> and file="git::<url>//<path>?ref=..."
+INTERFACE_REPO = ("git::https://github.com/vladorf/repo-commons.git//",
+                  "git::ssh://git@github.com/vladorf/repo-commons.git//")
+INTERFACE_SLUG = "vladorf/repo-commons"
+INTERFACE_REF = "tryout"  # ponytail: temporary branch pin, switch to a tag/main when released
+
+
+def from_interface_repo(path):
+    # included toml: source is a checkout of the interface repo, identified by its origin URL
+    git = ["git", "-C", os.path.dirname(path)]
+    try:
+        url = subprocess.check_output(git + ["remote", "get-url", "origin"], text=True, stderr=subprocess.DEVNULL).strip()
+        ref = subprocess.check_output(git + ["rev-parse", "--abbrev-ref", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return False
+    return re.sub(r"^.*github\.com[:/]|\.git$", "", url) == INTERFACE_SLUG and ref == INTERFACE_REF
+
+
+errors = []
+
+for t in tasks:
+    name, source = t["name"], os.path.realpath(t["source"])
+    remote = not source.startswith(root + os.sep)
+    if name.startswith("local:") or str(t.get("file") or "").startswith(INTERFACE_REPO) and str(t["file"]).endswith("?ref=" + INTERFACE_REF):
+        continue
+    if remote and from_interface_repo(source):
+        continue
+    errors.append(f"{name}: not local:* and not defined by the remote interface (source {t['source']})")
+
+if errors:
+    sys.exit("repo interface violations:\n  " + "\n  ".join(errors))
+print("repo interface OK")

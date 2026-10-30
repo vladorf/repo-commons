@@ -1,0 +1,3 @@
+["org:check:mandatory"]
+description = "Mandatory checks for every repository"
+depends = ["org:check:mise"]
