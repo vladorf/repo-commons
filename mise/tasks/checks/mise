@@ -26,7 +26,13 @@ tasks = json.loads(subprocess.check_output([MISE, "tasks", "ls", "--all", "--jso
 root = os.path.realpath(os.environ.get("MISE_PROJECT_ROOT", os.getcwd()))
 # MISE_TASK_DIR = .../mise (dir of organization.toml)
 interfaces_dir = os.path.join(os.environ["MISE_TASK_DIR"], "interfaces")
-interfaces = {f[:-5] for f in os.listdir(interfaces_dir) if f.endswith(".toml")}
+# interfaces/test/api.toml -> task name "test:api"
+interfaces = {
+    os.path.relpath(os.path.join(d, f), interfaces_dir)[:-5].replace(os.sep, ":")
+    for d, _, files in os.walk(interfaces_dir)
+    for f in files
+    if f.endswith(".toml")
+}
 # set by organization.toml from commons_config.toml's [vars]
 base, ref = os.environ["COMMONS_BASE"], os.environ["COMMONS_REF"]
 
