@@ -5,12 +5,29 @@ import re
 import subprocess
 import sys
 
-tasks = json.loads(subprocess.check_output(["mise", "tasks", "ls", "--json"]))
+
+def running_mise():
+    # PATH inside tasks can hold a different (older) mise than the one running us; use our ancestor
+    pid = os.getppid()
+    for _ in range(5):
+        try:
+            _, ppid, comm = subprocess.check_output(["ps", "-o", "pid=,ppid=,comm=", "-p", str(pid)], text=True).split(None, 2)
+        except subprocess.CalledProcessError:
+            break
+        if os.path.basename(comm.strip()) == "mise":
+            return comm.strip()
+        pid = int(ppid)
+    return "mise"
+
+
+MISE = running_mise()
+# --all: every project of a monorepo (a no-op otherwise); monorepo names look like //svc/a:task
+tasks = json.loads(subprocess.check_output([MISE, "tasks", "ls", "--all", "--json"], stderr=subprocess.DEVNULL))
 root = os.path.realpath(os.environ.get("MISE_PROJECT_ROOT", os.getcwd()))
 # MISE_TASK_DIR = .../mise (dir of organization.toml)
 interfaces_dir = os.path.join(os.environ["MISE_TASK_DIR"], "interfaces")
 interfaces = {f[:-5] for f in os.listdir(interfaces_dir) if f.endswith(".toml")}
-# set by organization.toml from config.toml's [vars]
+# set by organization.toml from commons_config.toml's [vars]
 base, ref = os.environ["COMMONS_BASE"], os.environ["COMMONS_REF"]
 
 
@@ -37,13 +54,13 @@ def matches_commons(where):
 errors = []
 
 for t in tasks:
-    name = t["name"]
+    name = re.sub(r"^//[^:]*:", "", t["name"])  # drop the monorepo project path
     # file tasks: `file` is the real script (git:: url before fetch, remote cache path after); else the defining toml
     where = t.get("file") or t["source"]
     remote = where.startswith("git::") or not os.path.realpath(where).startswith(root + os.sep)
     if name.startswith("local:") or name in interfaces or (name.startswith("org:") and remote and matches_commons(where)):
         continue
-    errors.append(f"{name}: must be local:*, org:* from commons_base@commons_ref, or one of {sorted(interfaces)} (source {t['source']})")
+    errors.append(f"{t['name']}: must be local:*, org:* from commons_base@commons_ref, or one of {sorted(interfaces)} (source {t['source']})")
 
 if errors:
     sys.exit("repo interface violations:\n  " + "\n  ".join(errors))
